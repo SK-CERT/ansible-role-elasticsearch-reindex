@@ -1,7 +1,15 @@
-{%- set data = {"source": {"index": item}, "dest": {"index": item + suffix}} -%}
-{%- if dest_host is defined and dest_host != source_host -%}
-    {%- set x = data['source'].__setitem__('remote', {}) -%}
-    {%- set x = data['source']['remote'].__setitem__('host', source_host) -%}
-    {%- set x = data['dest'].__setitem__('index', item) -%}
+{%- if (source['indices'] | length) == (destination['indices'] | default([]) | length) -%}
+    {%- set data = {"source": {"index": item.0 }, "dest": {"index": item.1 }} -%}
+    {%- if dest_host is defined and dest_host != source_host -%}
+        {%- set x = data['source'].__setitem__('remote', {}) -%}
+        {%- set x = data['source']['remote'].__setitem__('host', source_host) -%}
+    {%- endif -%}
+{%- else -%}
+    {%- set data = {"source": {"index": item}, "dest": {"index": item + suffix}} -%}
+    {%- if dest_host is defined and dest_host != source_host -%}
+        {%- set x = data['source'].__setitem__('remote', {}) -%}
+        {%- set x = data['source']['remote'].__setitem__('host', source_host) -%}
+        {%- set x = data['dest'].__setitem__('index', item) -%}
+    {%- endif -%}
 {%- endif -%}
 {{ data }}

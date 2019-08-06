@@ -24,6 +24,7 @@ Role Variables
         indices: <list of index names>
     destination:
         host: <str, hostname>
+        indices: <list of index names for renaming purposes>
 
 Dependencies
 ------------
@@ -63,6 +64,23 @@ Playbook for updating indices:
                 - test-2018
                 - test-2017
 
+Playbook for renaming indices:
+
+    - hosts: localhost
+      roles:
+        - role: elasticsearch-reindex
+          vars:
+            source:
+              host: "elasticsearch.server.sk:9200"
+              indices:
+                - test-2019
+                - test-2018
+                - test-2017
+            destination:
+              indices:
+                - test-renamed-2019
+                - test-renamed-2018
+                - test-renamed-2017
 License
 -------
 

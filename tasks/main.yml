@@ -4,26 +4,37 @@
   when:
     - source['host'] is defined
   set_fact:
-    source_host: "{{ source['host'] if (source['host'].startswith('http://') or source['host'].startswith('https://')) else (source['host'] | regex_replace('^(.*)$', 'http://\\1')) }}"
+    source_host: "{{ (source['host'].startswith('http://') or source['host'].startswith('https://'))
+                  | ternary(source['host'],
+                            source['host'] | regex_replace('^(.*)$', 'http://\\1'))
+                  }}"
+  tags: always
 
 - name: check destination hostname prefix
   when:
     - destination['host'] is defined
   set_fact:
-    dest_host: "{{ destination['host'] if (destination['host'].startswith('http://') or destination['host'].startswith('https://')) else (destination['host'] | regex_replace('^(.*)$', 'http://\\1')) }}"
+    dest_host: "{{ (destination['host'].startswith('http://') or destination['host'].startswith('https://'))
+                | ternary(destination['host'],
+                          destination['host'] | regex_replace('^(.*)$', 'http://\\1'))
+                }}"
+  tags: always
 
 - name: reindex original indices
   uri:
     method: POST
     url: "{{ dest_host | default(source_host) }}/_reindex"
-    body: "{{ lookup('template', 'reindex-body.j2') }}" 
+    body: "{{ lookup('template', 'reindex-body.j2') }}"
     body_format: "json"
     headers:
       Content-Type: "application/json"
-    return_content: yes
+    return_content: true
   register: response
   changed_when: response.status == 200
-  loop: "{{ source['indices'] }}"
+  loop: "{{ ((source['indices'] | length) == (destination['indices'] | default([]) | length))
+         | ternary(source['indices'] | zip(destination['indices'] | default([])) | list,
+                   source['indices'])
+         }}"
   tags: reindex, migrate
 
 - name: delete original indices
@@ -34,28 +45,33 @@
     url: "{{ source_host }}/{{ source['indices'] | join(',') }}"
   tags: delete
 
-- name: reindex temporary indces
-  when:
-    - (dest_host is defined and dest_host == source_host) or dest_host is not defined
-  uri:
-    method: POST
-    url: "{{ source_host }}/_reindex"
-    body: {"source": {"index": "{{ item }}{{ suffix }}"}, "dest": {"index": "{{ item }}"}}
-    body_format: "json"
-    headers:
-      Content-Type: "application/json"
-    return_content: yes
-  register: response
-  changed_when: response.status == 200
-  loop: "{{ source['indices'] }}"
-  tags: reindex, restore
+- name: reindex and delete temporary indices
+  when: destination['indices'] is undefined
+  block:
+    - name: reindex temporary indces
+      when:
+        - (dest_host is defined and dest_host == source_host) or dest_host is not defined
+      uri:
+        method: POST
+        url: "{{ source_host }}/_reindex"
+        body: {"source": {"index": "{{ item.0 }}{{ suffix }}"}, "dest": {"index": "{{ item.1 }}"}}
+        body_format: "json"
+        headers:
+          Content-Type: "application/json"
+        return_content: true
+      register: response
+      changed_when: response.status == 200
+      loop: "{{ ((source['indices'] | length) == (destination['indices'] | default([]) | length))
+             | ternary(source['indices'] | zip(destination['indices'] | default([])) | list,
+                       source['indices'] | zip(source['indices']) | list)
+             }}"
+      tags: reindex, restore
 
-- name: delete temporary indices
-  when:
-    - (dest_host is defined and dest_host == source_host) or dest_host is not defined
-    - not keep
-  uri:
-    method: DELETE
-    url: "{{ source_host }}/{{ source['indices'] | join(suffix + ',') }}{{ suffix }}"
-  tags: delete, restore
-
+    - name: delete temporary indices
+      when:
+        - (dest_host is defined and dest_host == source_host) or dest_host is not defined
+        - not keep
+      uri:
+        method: DELETE
+        url: "{{ source_host }}/{{ source['indices'] | join(suffix + ',') }}{{ suffix }}"
+      tags: delete, restore
