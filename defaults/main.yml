@@ -2,3 +2,4 @@
 
 keep: false
 suffix: "-copy"
+timeout: 1800

@@ -24,6 +24,7 @@
   uri:
     method: POST
     url: "{{ dest_host | default(source_host) }}/_reindex"
+    timeout: "{{ timeout }}"
     body: "{{ lookup('template', 'reindex-body.j2') }}"
     body_format: "json"
     headers:
@@ -54,6 +55,7 @@
       uri:
         method: POST
         url: "{{ source_host }}/_reindex"
+        timeout: "{{ timeout }}"
         body: {"source": {"index": "{{ item.0 }}{{ suffix }}"}, "dest": {"index": "{{ item.1 }}"}}
         body_format: "json"
         headers:

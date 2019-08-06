@@ -19,6 +19,7 @@ Role Variables
 
     suffix: <str, temporary index suffix>
     keep: <boolean, whether the temporary indices are preserved>
+    timeout: <int, reindex request timeout in seconds defaults to 1800 (1/2 hour)>
     source:
         host: <str, hostname>
         indices: <list of index names>
