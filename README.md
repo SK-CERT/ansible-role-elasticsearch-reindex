@@ -4,7 +4,7 @@ Elasticsearch-reindex
 Abstraction for Elasticsearch reindex API.
 
 Possible use cases: 
-- Migrate indices between remote elasticsearch instances.
+- Migrate or rename indices between remote elasticsearch instances or on single host. (may be asynchronous)
 - Update indices' with changed templates.
 
 Requirements
@@ -20,6 +20,8 @@ Role Variables
     suffix: <str, temporary index suffix>
     keep: <boolean, whether the temporary indices are preserved>
     timeout: <int, reindex request timeout in seconds defaults to 1800 (1/2 hour)>
+    async: <boolean, if true, the reindex requests are asynchronous>
+    validate_certs <boolean, URI module validate SSL certificates option>
     source:
         host: <str, hostname>
         indices: <list of index names>
@@ -65,12 +67,13 @@ Playbook for updating indices:
                 - test-2018
                 - test-2017
 
-Playbook for renaming indices:
+Playbook for renaming & migrating indices:
 
     - hosts: localhost
       roles:
         - role: elasticsearch-reindex
           vars:
+            async: true
             source:
               host: "elasticsearch.server.sk:9200"
               indices:
@@ -78,6 +81,7 @@ Playbook for renaming indices:
                 - test-2018
                 - test-2017
             destination:
+              host: "elasticsearch2.server.sk:9200"
               indices:
                 - test-renamed-2019
                 - test-renamed-2018
