@@ -20,38 +20,56 @@
                 }}"
   tags: always
 
+- name: cannot reindex
+  when:
+    - dest_host is undefined or dest_host == source_host  # working single host
+    - destination['indices'] is undefined or (destination['indices'] == source['indices'])
+    - async  # asynchronous reindex
+  block:
+    - name: warning message
+      debug:
+        msg: "running asynchronous reindex with required temporary indices may not work!!"
+
+    - meta: end_play
+  tags: always
+
 - name: reindex original indices
   uri:
     method: POST
-    url: "{{ dest_host | default(source_host) }}/_reindex"
+    url: "{{ dest_host | default(source_host) }}/_reindex?wait_for_completion={{ async | ternary('false', 'true') }}"
     timeout: "{{ timeout }}"
     body: "{{ lookup('template', 'reindex-body.j2') }}"
     body_format: "json"
     headers:
       Content-Type: "application/json"
     return_content: true
-  register: response
-  changed_when: response.status == 200
   loop: "{{ ((source['indices'] | length) == (destination['indices'] | default([]) | length))
          | ternary(source['indices'] | zip(destination['indices'] | default([])) | list,
                    source['indices'])
          }}"
-  tags: reindex, migrate
+  tags: update, migrate
+
+- name: asynchrounous reindex info
+  when: async
+  debug:
+    msg: "Check the reindex status in the Tasks API 'GET _tasks?detailed&actions=*reindex'"
+  tags: migrate
 
 - name: delete original indices
   when:
     - (dest_host is defined and dest_host == source_host) or dest_host is not defined
+    - not async
   uri:
     method: DELETE
     url: "{{ source_host }}/{{ source['indices'] | join(',') }}"
-  tags: delete
+  tags: update, delete, migrate
 
 - name: reindex and delete temporary indices
-  when: destination['indices'] is undefined
+  when:
+    - destination['indices'] is undefined
+    - (dest_host is defined and dest_host == source_host) or dest_host is not defined
   block:
     - name: reindex temporary indces
-      when:
-        - (dest_host is defined and dest_host == source_host) or dest_host is not defined
       uri:
         method: POST
         url: "{{ source_host }}/_reindex"
@@ -61,19 +79,15 @@
         headers:
           Content-Type: "application/json"
         return_content: true
-      register: response
-      changed_when: response.status == 200
       loop: "{{ ((source['indices'] | length) == (destination['indices'] | default([]) | length))
              | ternary(source['indices'] | zip(destination['indices'] | default([])) | list,
                        source['indices'] | zip(source['indices']) | list)
              }}"
-      tags: reindex, restore
+      tags: update, restore
 
     - name: delete temporary indices
-      when:
-        - (dest_host is defined and dest_host == source_host) or dest_host is not defined
-        - not keep
+      when: not keep
       uri:
         method: DELETE
         url: "{{ source_host }}/{{ source['indices'] | join(suffix + ',') }}{{ suffix }}"
-      tags: delete, restore
+      tags: delete, update, restore

@@ -3,3 +3,5 @@
 keep: false
 suffix: "-copy"
 timeout: 1800
+validate_certs: true
+async: false
