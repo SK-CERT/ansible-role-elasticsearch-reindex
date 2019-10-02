@@ -3,7 +3,7 @@ Elasticsearch-reindex
 
 Abstraction for Elasticsearch reindex API.
 
-Possible use cases: 
+Possible use cases:
 - Migrate or rename indices between remote elasticsearch instances or on single host. (may be asynchronous)
 - Update indices' with changed templates.
 
@@ -12,7 +12,7 @@ Requirements
 
 Reindexing between remote hosts requires additional configuration on the destination host. Take a peek at `https://www.elastic.co/guide/en/elasticsearch/reference/current/reindex-upgrade-remote.html`.
 
-Add this `reindex.remote.whitelist: <your_elasticsearch_host>:9200` to you 'elasticserch.yml' configuration file. 
+Add `reindex.remote.whitelist: <source_elasticsearch_host>:<source_elasticsearch_port>` to target elasticsearch's 'elasticserch.yml' configuration file.
 
 Role Variables
 --------------
@@ -25,6 +25,7 @@ Role Variables
     source:
         host: <str, hostname>
         indices: <list of index names>
+        index_regex_pattern: <str, regex for strings to be matched from the source index list>
     destination:
         host: <str, hostname>
         indices: <list of index names for renaming purposes>
@@ -52,13 +53,25 @@ Playbook for migrating indices:
             destination:
               host: "elasticsearch.server.sk:9201"
 
+Playbook for regex-based migrating indices:
+
+    - hosts: localhost
+      roles:
+        - role: elasticsearch-reindex
+          vars:
+            source:
+              host: "elasticsearch.server.sk:9200"
+              index_regex_pattern: "^(test-index|this-one-too)-.*$"
+            destination:
+              host: "elasticsearch.server.sk:9201"
+
 Playbook for updating indices:
 
     - hosts: localhost
       roles:
         - role: elasticsearch-reindex
           vars:
-            keep: yes
+            keep: true
             suffix: "-backup"
             source:
               host: "elasticsearch.server.sk:9200"
@@ -86,6 +99,7 @@ Playbook for renaming & migrating indices:
                 - test-renamed-2019
                 - test-renamed-2018
                 - test-renamed-2017
+
 License
 -------
 
