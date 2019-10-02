@@ -33,6 +33,19 @@
     - meta: end_play
   tags: always
 
+- when: source['index_regex_pattern'] is defined
+  block:
+    - name: fetch all indices with a specified name pattern
+      uri:
+        method: GET
+        url: "{{ source_host }}/_cat/indices?s=index&h=index"
+        return_content: true
+      register: all_indices
+
+    - set_fact:
+        source:
+          indices: "{{ all_indices['content'].split('\n') | select('match', source['index_regex_pattern']) | list }}"
+
 - name: reindex original indices
   uri:
     method: POST
