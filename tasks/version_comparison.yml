@@ -1,0 +1,57 @@
+---
+
+- when: source_host is defined
+  block:
+    - name: check source elasticsearch version
+      no_log: true
+      uri:
+        method: GET
+        url: "{{ source_host }}"
+        return_content: true
+      register: source_es_info
+      tags: always
+
+    - name: match source elasticsearch version numbers
+      no_log: true
+      set_fact:
+        source_version: "{{ source_es_info['json']['version']['number'] | regex_search('^[\\.0-9]+') }}"
+      tags: always
+
+- when: dest_host is defined
+  no_log: true
+  block:
+    - name: check destination elasticsearch version
+      no_log: true
+      uri:
+        method: GET
+        url: "{{ dest_host }}"
+        return_content: true
+      register: dest_es_info
+      tags: always
+
+    - name: match destination elasticsearch minimum index compatibility version
+      no_log: true
+      set_fact:
+        dest_min_version: "{{ dest_es_info['json']['version']['minimum_index_compatibility_version'] | regex_search('^[\\.0-9]+') }}"
+      tags: always
+
+- name: compare elasticsearch verions
+  when:
+    - dest_min_version is defined
+    - source_version is defined
+  block:
+    - name: verify version compatiblity
+      no_log: true
+      set_fact:
+        compatible: "{{ source_version is version(dest_min_version, '>=', strict=True) }}"
+      tags: always
+
+    - name: notice
+      when: not compatible
+      debug:
+        msg: "elasticsearch instances are not index compatible! ENDING PLAY"
+      tags: always
+
+    - when: not compatible
+      meta: end_play
+      tags: always

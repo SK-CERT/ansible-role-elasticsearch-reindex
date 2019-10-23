@@ -20,6 +20,13 @@
                 }}"
   tags: always
 
+- when:
+    - dest_host is defined
+    - source_host is defined
+    - dest_host != source_host
+  include_tasks:
+    file: "version_comparison.yml"
+
 - name: cannot reindex
   when:
     - dest_host is undefined or dest_host == source_host  # working single host
